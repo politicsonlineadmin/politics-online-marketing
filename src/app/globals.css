@@ -50,8 +50,8 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-inter);
-  --font-heading: var(--font-plus-jakarta);
+  --font-sans: var(--font-league-spartan);
+  --font-heading: var(--font-league-spartan);
 
   /* Brand colours */
   --color-navy: #1B2A4A;
