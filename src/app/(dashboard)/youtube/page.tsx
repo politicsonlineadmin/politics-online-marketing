@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   youtubeMetrics,
-  youtubeVideos,
+  youtubeVideos as mockVideos,
   youtubeRetention,
   youtubeTrafficSources,
 } from "@/lib/mock-data";
@@ -21,7 +21,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatNumber(num: number): string {
@@ -30,16 +30,84 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
+interface VideoData {
+  id: string;
+  title: string;
+  publishedAt: string;
+  thumbnail: string;
+  views: number;
+  likes: number;
+  comments: number;
+  duration: string;
+}
+
+interface YouTubeData {
+  channel: {
+    title: string;
+    subscribers: number;
+    totalViews: number;
+    videoCount: number;
+  };
+  videos: VideoData[];
+  summary: {
+    totalVideoViews: number;
+    totalLikes: number;
+    totalComments: number;
+    avgViews: number;
+    topVideo: VideoData | null;
+  };
+}
+
 type SortKey = "views" | "likes" | "comments";
 
 export default function YouTubePage() {
+  const [data, setData] = useState<YouTubeData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("views");
   const [sortAsc, setSortAsc] = useState(false);
 
-  const sortedVideos = [...youtubeVideos].sort((a, b) => {
-    const diff = a[sortBy] - b[sortBy];
-    return sortAsc ? diff : -diff;
-  });
+  useEffect(() => {
+    fetch("/api/youtube")
+      .then((res) => {
+        if (!res.ok) throw new Error("API error");
+        return res.json();
+      })
+      .then((json) => {
+        setData(json);
+        setIsLive(true);
+      })
+      .catch(() => {
+        // Fall back to mock data
+        setData({
+          channel: {
+            title: "Politics Online",
+            subscribers: youtubeMetrics.subscribers,
+            totalViews: youtubeMetrics.views,
+            videoCount: mockVideos.length,
+          },
+          videos: mockVideos.map((v) => ({
+            id: v.id,
+            title: v.title,
+            publishedAt: v.date,
+            thumbnail: "",
+            views: v.views,
+            likes: v.likes,
+            comments: v.comments,
+            duration: v.avgViewDuration || "—",
+          })),
+          summary: {
+            totalVideoViews: mockVideos.reduce((s, v) => s + v.views, 0),
+            totalLikes: mockVideos.reduce((s, v) => s + v.likes, 0),
+            totalComments: mockVideos.reduce((s, v) => s + v.comments, 0),
+            avgViews: Math.round(mockVideos.reduce((s, v) => s + v.views, 0) / mockVideos.length),
+            topVideo: null,
+          },
+        });
+        setIsLive(false);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggleSort = (key: SortKey) => {
     if (sortBy === key) {
@@ -63,39 +131,64 @@ export default function YouTubePage() {
     </button>
   );
 
+  if (loading) {
+    return (
+      <AppShell title="YouTube Analytics">
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-youtube" />
+          <span className="ml-3 text-muted-foreground">Loading YouTube data...</span>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const d = data!;
+  const sortedVideos = [...d.videos].sort((a, b) => {
+    const diff = a[sortBy] - b[sortBy];
+    return sortAsc ? diff : -diff;
+  });
+
   return (
     <AppShell title="YouTube Analytics">
       <div className="space-y-6">
+        {/* Data source indicator */}
+        <div className="flex items-center gap-2">
+          <div className={cn("h-2 w-2 rounded-full", isLive ? "bg-emerald-500" : "bg-amber-500")} />
+          <span className="text-xs text-muted-foreground">
+            {isLive ? "Live data from YouTube API" : "Showing mock data — check API key in settings"}
+          </span>
+        </div>
+
         {/* Top metrics */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           <MetricCard
             label="Subscribers"
-            value={formatNumber(youtubeMetrics.subscribers)}
-            change={youtubeMetrics.followerGrowth}
+            value={formatNumber(d.channel.subscribers)}
+            change={0}
             trend="up"
           />
           <MetricCard
-            label="Views"
-            value={formatNumber(youtubeMetrics.views)}
-            change={youtubeMetrics.viewsChange}
+            label="Total Views"
+            value={formatNumber(d.channel.totalViews)}
+            change={0}
             trend="up"
           />
           <MetricCard
-            label="Watch Time (hrs)"
-            value={formatNumber(youtubeMetrics.watchTimeHours)}
-            change={9.8}
+            label="Videos"
+            value={String(d.channel.videoCount)}
+            change={0}
             trend="up"
           />
           <MetricCard
-            label="CTR"
-            value={`${youtubeMetrics.ctr}%`}
-            change={0.4}
+            label="Avg Views/Video"
+            value={formatNumber(d.summary.avgViews)}
+            change={0}
             trend="up"
           />
           <MetricCard
-            label="Avg View Duration"
-            value={youtubeMetrics.avgViewDuration}
-            change={3.2}
+            label="Total Likes"
+            value={formatNumber(d.summary.totalLikes)}
+            change={0}
             trend="up"
           />
         </div>
@@ -104,7 +197,7 @@ export default function YouTubePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold text-navy">
-              Video Analytics
+              Video Analytics ({sortedVideos.length} videos)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -127,11 +220,8 @@ export default function YouTubePage() {
                     <th className="text-right">
                       {sortableHeader("Comments", "comments")}
                     </th>
-                    <th className="pb-3 px-4 text-right font-medium text-muted-foreground">
-                      Avg Duration
-                    </th>
                     <th className="pb-3 pl-4 text-right font-medium text-muted-foreground">
-                      CTR
+                      Duration
                     </th>
                   </tr>
                 </thead>
@@ -141,13 +231,25 @@ export default function YouTubePage() {
                       key={video.id}
                       className="border-b border-border/50 transition-colors hover:bg-muted/30"
                     >
-                      <td className="py-3 pr-4 font-medium text-navy">
-                        {video.title}
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-3">
+                          {video.thumbnail && (
+                            <img
+                              src={video.thumbnail}
+                              alt=""
+                              className="h-9 w-16 rounded object-cover"
+                            />
+                          )}
+                          <span className="font-medium text-navy line-clamp-1">
+                            {video.title}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-3 px-4 text-muted-foreground">
-                        {new Date(video.date).toLocaleDateString("en-GB", {
+                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                        {new Date(video.publishedAt).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
+                          year: "numeric",
                         })}
                       </td>
                       <td className="py-3 px-4 text-right font-semibold text-navy">
@@ -159,11 +261,8 @@ export default function YouTubePage() {
                       <td className="py-3 px-4 text-right">
                         {video.comments.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        {video.avgViewDuration ?? "—"}
-                      </td>
-                      <td className="py-3 pl-4 text-right">
-                        {video.ctr ? `${video.ctr}%` : "—"}
+                      <td className="py-3 pl-4 text-right text-muted-foreground">
+                        {video.duration}
                       </td>
                     </tr>
                   ))}
@@ -173,24 +272,21 @@ export default function YouTubePage() {
           </CardContent>
         </Card>
 
-        {/* Retention curve + Traffic sources */}
+        {/* Retention curve + Traffic sources (still mock — YouTube API doesn't expose these publicly) */}
         <div className="grid gap-4 lg:grid-cols-2">
-          {/* Retention curve */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-navy">
                 Average Retention Curve
               </CardTitle>
+              <p className="text-xs text-muted-foreground">Sample data — requires YouTube Studio access</p>
             </CardHeader>
             <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={youtubeRetention}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="time"
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
-                    />
+                    <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#6b7280" }} />
                     <YAxis
                       tick={{ fontSize: 11, fill: "#6b7280" }}
                       tickFormatter={(val: number) => `${val}%`}
@@ -221,12 +317,12 @@ export default function YouTubePage() {
             </CardContent>
           </Card>
 
-          {/* Traffic sources */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-navy">
                 Traffic Sources
               </CardTitle>
+              <p className="text-xs text-muted-foreground">Sample data — requires YouTube Studio access</p>
             </CardHeader>
             <CardContent>
               <div className="h-64">
@@ -236,11 +332,7 @@ export default function YouTubePage() {
                     layout="vertical"
                     margin={{ left: 30 }}
                   >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#e5e7eb"
-                      horizontal={false}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
                     <XAxis
                       type="number"
                       tick={{ fontSize: 11, fill: "#6b7280" }}
