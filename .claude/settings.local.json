@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/rossm/Desktop/politics-online-marketing && npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Bash(cd /c/Users/rossm/Desktop && echo \"N\" | npx create-next-app@latest politics-online-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Bash(cp:*)",
+      "Bash(cd /c/Users/rossm/Desktop/politics-online-marketing && npm install recharts lucide-react zustand date-fns clsx tailwind-merge class-variance-authority 2>&1)",
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/rossm/Desktop/politics-online-marketing && npx shadcn@latest add button card badge input tabs select separator avatar scroll-area tooltip sheet dialog dropdown-menu --yes 2>&1)",
+      "Bash(ls:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(sleep 8:*)",
+      "Bash(head:*)",
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(start:*)",
+      "Bash(gh auth:*)",
+      "Bash(cd /c/Users/rossm/Desktop/politics-online-marketing && git init 2>&1)"
+    ]
+  }
+}
